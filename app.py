@@ -4,6 +4,7 @@
 """Calculate and display panelist win streaks from scores in the WWDTM
 Stats database"""
 
+#import argparse
 from collections import OrderedDict
 import json
 import math
@@ -11,6 +12,7 @@ import os
 from typing import List, Dict
 import mysql.connector
 from mysql.connector.errors import DatabaseError, ProgrammingError
+#from wwdtm.panelist import core, info, details, utility
 
 def retrieve_panelists(database_connection: mysql.connector.connect
                       ) -> List[Dict]:
@@ -45,7 +47,7 @@ def retrieve_panelist_ranks(panelist_id: int,
              "WHERE pm.panelistid = %s AND "
              "s.bestof = 0 AND s.repeatshowid IS NULL "
              "ORDER BY s.showdate ASC;")
-    cursor.execute(query)
+    cursor.execute(query, (panelist_id,))
     result = cursor.fetchall()
 
     if not result:
@@ -54,7 +56,7 @@ def retrieve_panelist_ranks(panelist_id: int,
     ranks = []
     for row in result:
         info = OrderedDict()
-        info["show_date"] = row[0].isodate()
+        info["show_date"] = row[0].isoformat()
         info["rank"] = row[1]
         ranks.append(info)
 
@@ -64,9 +66,43 @@ def calculate_panelist_win_streaks(database_connection: mysql.connector.connect)
     """Retrieve panelist stats and calculate their win streaks"""
     panelists = retrieve_panelists(database_connection)
     for panelist in panelists:
-        print("=== {} ===".format(panelist["name"]))
-        
+        print("{}:".format(panelist["name"]))
+        longest_win_streak = 0
+        longest_win_streak_with_draws = 0
+        total_wins = 0
+        total_wins_with_draws = 0
 
+        shows = retrieve_panelist_ranks(panelist["id"], database_connection)
+
+        # Calculate win streaks 
+        current_streak = 0
+        for show in shows:
+            if show["rank"] == "1":
+                total_wins += 1
+                current_streak += 1
+
+                if current_streak > longest_win_streak:
+                    longest_win_streak = current_streak
+            else:
+                current_streak = 0
+
+        # Calculate win streaks with draws
+        current_streak_with_draws = 0
+        for show in shows:
+            if show["rank"] == "1" or show["rank"] == "1t":
+                    total_wins_with_draws += 1
+                    current_streak_with_draws += 1
+                    if current_streak_with_draws > longest_win_streak_with_draws:
+                        longest_win_streak_with_draws = current_streak_with_draws
+            else:
+                current_streak_with_draws = 0
+
+        print("  First Place:                    {}".format(total_wins))
+        print("  First Place + Draws:            {}".format(total_wins_with_draws))
+
+        print("  Longest win streak              {}".format(longest_win_streak))
+        print("  Longest win streak with draws:  {}".format(longest_win_streak_with_draws))
+        print("\n\n")
     return None
 
 def load_config(app_environment) -> Dict:
