@@ -100,7 +100,7 @@ def calculate_panelist_win_streaks(database_connection: mysql.connector.connect)
         print("  First Place:                    {}".format(total_wins))
         print("  First Place + Draws:            {}".format(total_wins_with_draws))
 
-        print("  Longest win streak              {}".format(longest_win_streak))
+        print("  Longest win streak:             {}".format(longest_win_streak))
         print("  Longest win streak with draws:  {}".format(longest_win_streak_with_draws))
         print("\n\n")
     return None
