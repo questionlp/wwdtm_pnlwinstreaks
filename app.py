@@ -42,7 +42,8 @@ def retrieve_panelist_ranks(panelist_id: int,
     """Retrieve a list of show dates and the panelist rank for the
     requested panelist ID"""
     cursor = database_connection.cursor()
-    query = ("SELECT s.showdate, pm.showpnlrank FROM ww_showpnlmap PM "
+    query = ("SELECT s.showid, s.showdate, pm.showpnlrank "
+             "FROM ww_showpnlmap PM "
              "JOIN ww_shows s ON s.showid = pm.showid "
              "WHERE pm.panelistid = %s AND "
              "s.bestof = 0 AND s.repeatshowid IS NULL "
@@ -56,8 +57,9 @@ def retrieve_panelist_ranks(panelist_id: int,
     ranks = []
     for row in result:
         info = OrderedDict()
-        info["show_date"] = row[0].isoformat()
-        info["rank"] = row[1]
+        info["show_id"] = row[0]
+        info["show_date"] = row[1].isoformat()
+        info["rank"] = row[2]
         ranks.append(info)
 
     return ranks
@@ -68,7 +70,9 @@ def calculate_panelist_win_streaks(database_connection: mysql.connector.connect)
     for panelist in panelists:
         print("{}:".format(panelist["name"]))
         longest_win_streak = 0
+        longest_win_streak_show_dates = []
         longest_win_streak_with_draws = 0
+        longest_win_streak_show_dates_with_draws = []
         total_wins = 0
         total_wins_with_draws = 0
 
@@ -76,32 +80,62 @@ def calculate_panelist_win_streaks(database_connection: mysql.connector.connect)
 
         # Calculate win streaks 
         current_streak = 0
+        current_streak_show_dates = []
         for show in shows:
             if show["rank"] == "1":
                 total_wins += 1
                 current_streak += 1
+                show_info = OrderedDict()
+                show_info["show_id"] = show["show_id"]
+                show_info["show_date"] = show["show_date"]
+                show_info["show_rank"] = show["rank"]
+                current_streak_show_dates.append(show_info)
 
                 if current_streak > longest_win_streak:
                     longest_win_streak = current_streak
+                    longest_win_streak_show_dates = current_streak_show_dates
             else:
                 current_streak = 0
+                current_streak_show_dates = []
 
         # Calculate win streaks with draws
         current_streak_with_draws = 0
+        current_streak_show_dates_with_draws = []
         for show in shows:
             if show["rank"] == "1" or show["rank"] == "1t":
-                    total_wins_with_draws += 1
-                    current_streak_with_draws += 1
-                    if current_streak_with_draws > longest_win_streak_with_draws:
-                        longest_win_streak_with_draws = current_streak_with_draws
+                total_wins_with_draws += 1
+                current_streak_with_draws += 1
+                current_streak_show_dates_with_draws.append(show["show_date"])
+
+                show_info = OrderedDict()
+                show_info["show_id"] = show["show_id"]
+                show_info["show_date"] = show["show_date"]
+                show_info["show_rank"] = show["rank"]
+                current_streak_show_dates.append(show_info)
+
+                if current_streak_with_draws > longest_win_streak_with_draws:
+                    longest_win_streak_with_draws = current_streak_with_draws
+                    longest_win_streak_show_dates_with_draws = current_streak_show_dates_with_draws
             else:
                 current_streak_with_draws = 0
+                current_streak_show_dates_with_draws = []
 
         print("  First Place:                    {}".format(total_wins))
         print("  First Place + Draws:            {}".format(total_wins_with_draws))
 
         print("  Longest win streak:             {}".format(longest_win_streak))
+        if longest_win_streak_show_dates:
+            print("    Shows:                        ", end="")
+            for show in longest_win_streak_show_dates:
+                print("{}".format(show["show_date"]), end=" ")
+
+        print()
         print("  Longest win streak with draws:  {}".format(longest_win_streak_with_draws))
+        if longest_win_streak_show_dates_with_draws:
+            print("    Shows:                        ", end="")
+            for show in longest_win_streak_show_dates:
+                print("{}".format(show["show_date"]), end=" ")
+
         print("\n\n")
     return None
 
